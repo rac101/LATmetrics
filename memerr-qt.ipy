@@ -1,0 +1,95 @@
+#!/Users/rc/anaconda/bin/python
+
+# make a plot of LAT memory errors for the latest quarterly period
+
+import time
+import calendar
+import re
+from mpl_toolkits.basemap import Basemap
+import numpy as np
+import matplotlib.pyplot as plt
+plt.rc('figure', figsize = [16, 12])
+plt.rc('font', size = 20)
+
+qtr_beg = ['N/A','-10-01','-10-01','-10-01','-01-01','-01-01','-01-01','-04-01','-04-01','-04-01','-07-01','-07-01','-07-01']
+qtr_end = ['N/A','-01-01','-01-01','-01-01','-04-01','-04-01','-04-01','-07-01','-07-01','-07-01','-10-01','-10-01','-10-01']
+qtr_num = ['N/A','q4','q4','q4','q1','q1','q1','q2','q2','q2','q3','q3','q3']
+
+year = time.gmtime().tm_year
+syear = str(year)
+month = time.gmtime().tm_mon
+
+outfile = 'memerr-'+syear+qtr_num[month]+".png"
+start = syear+qtr_beg[month]
+end = syear+qtr_end[month]
+if month < 4:
+    syear1 = str(year-1)
+    outfile = 'memerr-'+syear1+qtr_num[month]+".png"
+    start = syear1+qtr_beg[month]
+
+print ("Based on today's date, the plot time range will be from",start,"to",end,"with the output filename =",outfile,"\n") 
+#start = "2015-04-01"
+#end = "2015-07-01"
+
+t_start = calendar.timegm(time.strptime(start, '%Y-%m-%d'))
+t_end = calendar.timegm(time.strptime(end, '%Y-%m-%d'))
+
+# read ASCII file of LAT memory errors
+# example line from the file:
+# SIU: 2008-08-02 14:55:25.919560 (1217688925.919560)  Address:   33033256 (0x01f80c28)  Type: 3 (Correctable single-bit error) 51.018649 -24.580029 1
+
+err_count = {}
+n_blank = 0
+lon_in = []
+lat_in = []
+lon_out = []
+lat_out = []
+per_err = 0
+
+wdir = "/Users/rc/Documents/GLAST/ISOC/LATmetrics/memerr/"
+with open(wdir+"geosaa.out") as fi:
+    for line in fi:
+        if not line.strip():
+            n_blank += 1
+            continue
+        line = re.sub('[\(\)\:]',' ',line)
+        ws = line.split()
+        key1 = ws[0]
+        key2 = (ws[0],ws[10])
+        err_count[key1] = err_count.get(key1, 0) + 1
+        err_count[key2] = err_count.get(key2, 0) + 1
+        if float(ws[5]) > t_start and float(ws[5]) < t_end:
+#            print (ws[-1])
+            per_err += 1
+            if int(ws[-1]) == 1:
+                lon_in.append(ws[-3])
+                lat_in.append(ws[-2])
+            else:
+                lon_out.append(ws[-3])
+                lat_out.append(ws[-2])
+fi.close()
+
+print (n_blank,"blank lines (1 per day)\n")
+print ("Cumulative Errors\tSIU\tEPU0\tEPU1")
+print ("Single Bit\t\t%d\t%d\t%d" % (err_count[('SIU','3')],err_count[('EPU0','3')],err_count[('EPU1','3')]))
+print ("Double Bit\t\t%d\t%d\t%d" % (err_count[('SIU','4')],err_count[('EPU0','4')],err_count[('EPU1','4')]))
+print ("Total\t\t\t%d\t%d\t%d" % (err_count['SIU'],err_count['EPU0'],err_count['EPU1']))
+
+saapercent = 100*len(lat_in)/per_err
+
+saalon = [ 33.9,  24.5, -18.6, -25.7, -36.0, -42.0, -58.8, -93.1, -97.5, -98.5, -92.1, -86.1,  33.9]
+saalat = [-30.0, -22.6,   2.5,   5.2,   5.2,   4.6,   0.7,  -8.6,  -9.9, -12.5, -21.7, -30.0, -30.0]
+
+m = Basemap(projection='cyl',llcrnrlat=-90,urcrnrlat=90,llcrnrlon=-180,urcrnrlon=180)
+m.drawcoastlines()
+#m.fillcontinents(color='coral',lake_color='aqua')
+# draw parallels and meridians.
+m.drawparallels(np.arange(-90.,91.,30.))
+m.drawmeridians(np.arange(-180.,181.,45.))
+#m.drawmapboundary(fill_color='aqua')
+m.plot(saalon,saalat,linewidth=1.5,color='g')
+m.scatter(lon_in,lat_in,s=15,marker='+',color='b')
+m.scatter(lon_out,lat_out,s=9,marker='o',color='r')
+plt.title("%s to %s:         %s Total Errors          %d%% inside SAA" % (start,end,per_err,saapercent))
+#plt.show()
+plt.savefig(wdir+outfile,bbox_inches='tight')
