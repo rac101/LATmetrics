@@ -1,0 +1,15 @@
+# ignore everything except explicitly allowed files in the repository
+*
+
+# explicitly allowed files in the repository
+!*.ipynb
+!*.ipy
+!README
+!.gitignore
+
+# allow the above few files, even in subdirectories
+!*/
+
+# ignore a few exceptions to the above allowed files
+Untitled*
+.ipynb_checkpoints/*
