@@ -12,4 +12,5 @@
 
 # ignore a few exceptions to the above allowed files
 Untitled*
-.ipynb_checkpoints/*
+# ignore the following folder and all its contents
+/.ipynb_checkpoints
